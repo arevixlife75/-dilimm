@@ -1,0 +1,415 @@
+﻿<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Gülüme Mektup</title>
+    <meta name="claude:viewport-fit-sides" content="cover">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap">
+    <style>
+        /* Layout: winter-night stage with a sealed envelope; tapping the seal opens it, starts the song and brings up the note with your photo. Single dark theme by choice. */
+        :root {
+            --night: #141a2e;
+            --night2: #1e2742;
+            --paper: #f3ece2;
+            --paper-edge: #ddd2c2;
+            --ink: #2b2a3a;
+            --rose: #b8394f;
+            --rose2: #8f2638;
+            --snow: #e8eef8;
+            --muted: #a9b4cc;
+            --hand: "Caveat","Segoe Script","Bradley Hand",cursive;
+            --serif: "Cormorant Garamond",Georgia,"Times New Roman",serif;
+            color-scheme: dark;
+        }
+
+        [hidden] {
+            display: none !important
+        }
+
+        html, body {
+            margin: 0;
+            height: 100%
+        }
+
+        body {
+            background: radial-gradient(120% 90% at 50% 10%,var(--night2),var(--night));
+            color: var(--snow);
+            font-family: var(--serif);
+            overflow: hidden;
+            padding-left: max(16px,env(safe-area-inset-left,0px));
+            padding-right: max(16px,env(safe-area-inset-right,0px))
+        }
+
+        canvas#snow {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none
+        }
+
+        .stage {
+            position: relative;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 28px;
+            text-align: center
+        }
+
+        .hint {
+            font-style: italic;
+            color: var(--muted);
+            font-size: 1.1rem;
+            transition: opacity .4s;
+            margin: 0
+        }
+
+        .env {
+            position: relative;
+            width: min(340px,86vw);
+            aspect-ratio: 3/2;
+            max-width: 100%;
+            perspective: 900px
+        }
+
+            .env .back {
+                position: absolute;
+                inset: 0;
+                background: var(--paper-edge);
+                border-radius: 6px;
+                box-shadow: 0 24px 50px rgba(0,0,0,.45)
+            }
+
+            .env .front {
+                position: absolute;
+                inset: 0;
+                border-radius: 6px;
+                z-index: 3;
+                background: linear-gradient(to top right,var(--paper) 50%,transparent 50.4%) left/50.2% 100% no-repeat, linear-gradient(to top left,var(--paper) 50%,transparent 50.4%) right/50.2% 100% no-repeat;
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
+                padding-bottom: 12%
+            }
+
+        .addr {
+            font-family: var(--hand);
+            color: var(--ink);
+            font-size: clamp(1.5rem,6vw,1.9rem)
+        }
+
+        .env .flap {
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 58%;
+            z-index: 4;
+            transform-origin: top;
+            transition: transform .7s cubic-bezier(.6,.1,.3,1),z-index 0s .35s;
+            background: var(--paper);
+            clip-path: polygon(0 0,100% 0,50% 100%);
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,.12))
+        }
+
+        .env .peek {
+            position: absolute;
+            left: 7%;
+            right: 7%;
+            top: 8%;
+            bottom: 6%;
+            background: #fffaf2;
+            border-radius: 4px;
+            z-index: 2;
+            transition: transform .8s cubic-bezier(.3,.7,.3,1) .5s
+        }
+
+        .seal {
+            position: absolute;
+            left: 50%;
+            top: 58%;
+            transform: translate(-50%,-50%);
+            z-index: 5;
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            border: 0;
+            cursor: pointer;
+            background: radial-gradient(circle at 35% 30%,#d4566b,var(--rose) 45%,var(--rose2));
+            color: #ffe9ec;
+            font-size: 1.6rem;
+            box-shadow: 0 3px 8px rgba(0,0,0,.35),inset 0 -3px 6px rgba(0,0,0,.25);
+            transition: transform .25s,opacity .3s
+        }
+
+            .seal:hover {
+                transform: translate(-50%,-50%) scale(1.06)
+            }
+
+            .seal:focus-visible {
+                outline: 3px solid var(--snow);
+                outline-offset: 4px
+            }
+
+        .open .flap {
+            transform: rotateX(180deg);
+            z-index: 1
+        }
+
+        .open .seal {
+            opacity: 0;
+            pointer-events: none
+        }
+
+        .open .peek {
+            transform: translateY(-55%)
+        }
+
+        .open ~ .hint {
+            opacity: 0
+        }
+
+        .letter {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-y: auto;
+            padding-block: calc(env(safe-area-inset-top,0px) + 28px) calc(env(safe-area-inset-bottom,0px) + 28px);
+            padding-left: max(16px,env(safe-area-inset-left,0px));
+            padding-right: max(16px,env(safe-area-inset-right,0px));
+            background: rgba(12,16,30,.55);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .6s
+        }
+
+            .letter.show {
+                opacity: 1;
+                pointer-events: auto
+            }
+
+        .sheet {
+            position: relative;
+            width: min(480px,100%);
+            margin-block: auto;
+            background: #fffaf2;
+            color: var(--ink);
+            border-radius: 4px;
+            padding: 30px 26px 26px;
+            box-shadow: 0 30px 60px rgba(0,0,0,.5);
+            transform: translateY(30px);
+            transition: transform .7s cubic-bezier(.2,.8,.2,1);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            align-items: center
+        }
+
+        .letter.show .sheet {
+            transform: none
+        }
+
+        .sheet::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 8px;
+            border-radius: 4px 4px 0 0;
+            background: repeating-linear-gradient(90deg,var(--rose) 0 14px,var(--rose2) 14px 18px,#f3ece2 18px 22px,var(--rose2) 22px 26px)
+        }
+
+        .polaroid {
+            background: #fff;
+            padding: 10px 10px 34px;
+            box-shadow: 0 8px 20px rgba(0,0,0,.18);
+            transform: rotate(-2deg);
+            width: fit-content;
+            max-width: min(340px,88%);
+            position: relative
+        }
+
+            .polaroid img {
+                display: block;
+                width: auto;
+                max-width: 100%;
+                height: auto;
+                max-height: 60vh;
+                max-height: 60dvh;
+                object-fit: contain;
+                background: #e9e2d6
+            }
+
+            .polaroid .ph {
+                display: block;
+                width: min(240px,70vw);
+                aspect-ratio: 4/5;
+                background: #e9e2d6
+            }
+
+            .polaroid .ph {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: var(--serif);
+                font-style: italic;
+                color: #8a8070;
+                font-size: 1rem;
+                text-align: center;
+                padding: 12px
+            }
+
+            .polaroid figcaption {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 6px;
+                font-family: var(--hand);
+                font-size: 1.3rem;
+                color: var(--ink);
+                text-align: center
+            }
+
+        .note {
+            font-family: var(--hand);
+            font-size: clamp(1.45rem,5vw,1.7rem);
+            line-height: 1.35;
+            text-align: left;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px
+        }
+
+            .note p {
+                margin: 0
+            }
+
+            .note .hi {
+                font-weight: 700;
+                color: var(--rose2);
+                font-size: 1.15em
+            }
+
+            .note .kiss {
+                text-align: right;
+                color: var(--rose2)
+            }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center
+        }
+
+        .btn {
+            background: none;
+            border: 1px solid var(--paper-edge);
+            color: var(--ink);
+            font-family: var(--serif);
+            font-style: italic;
+            font-size: 1rem;
+            padding: 8px 16px;
+            border-radius: 999px;
+            cursor: pointer
+        }
+
+            .btn:focus-visible {
+                outline: 2px solid var(--rose);
+                outline-offset: 3px
+            }
+
+        @media (prefers-reduced-motion:reduce) {
+            * {
+                transition-duration: .01s !important;
+                transition-delay: 0s !important
+            }
+        }
+    </style>
+
+</head>
+<body>
+    <canvas id="snow" aria-hidden="true"></canvas>
+    <main class="stage">
+        <div class="env" id="env">
+            <div class="back"></div>
+            <div class="peek"></div>
+            <div class="front"><div class="addr">Gülüme</div></div>
+            <div class="flap"></div>
+            <button class="seal" id="seal" aria-label="Mektubu aç">♥</button>
+        </div>
+        <p class="hint">Mührü kır, mektubu aç</p>
+    </main>
+
+    <section class="letter" id="letter" aria-hidden="true">
+        <article class="sheet">
+            <figure class="polaroid" style="margin:0">
+                <img id="photo" src="foto.jpg" alt="İkimiz">
+                <div class="ph" id="ph" hidden>Fotoğrafımız buraya gelecek</div>
+                <figcaption>biz ♥</figcaption>
+            </figure>
+            <div class="note">
+                <p class="hi">Gülüm,</p>
+                <p>Bugün biraz yoğunum, çok yazamayabilirim.</p>
+                <p>Anlayışın için çok teşekkür ediyorum. Aklım hep sende, bunu bil.</p>
+                <p class="kiss">Seni çoook öpüyorum</p>
+            </div>
+            <div class="row">
+                <button class="btn" id="music" hidden>Müziği durdur</button>
+                <button class="btn" id="close">Zarfa geri koy</button>
+            </div>
+        </article>
+    </section>
+
+    <audio id="song" src="sarki.mp3" preload="auto"></audio>
+
+    <script>
+        (function () {
+            const START = 132; // 2:12
+            const env = document.getElementById('env'), seal = document.getElementById('seal'), letter = document.getElementById('letter'),
+                closeBtn = document.getElementById('close'), musicBtn = document.getElementById('music'), song = document.getElementById('song'),
+                photo = document.getElementById('photo'), ph = document.getElementById('ph');
+            const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            let songOk = true;
+            photo.addEventListener('error', () => { photo.hidden = true; ph.hidden = false; });
+            song.addEventListener('error', () => { songOk = false; musicBtn.hidden = true; });
+            function playFromStart() {
+                if (!songOk) return;
+                const go = () => { try { song.currentTime = START; } catch (e) { } song.play().then(() => { musicBtn.hidden = false; musicBtn.textContent = 'Müziği durdur'; }).catch(() => { }); };
+                if (song.readyState >= 1) go(); else song.addEventListener('loadedmetadata', go, { once: true });
+                song.play().catch(() => { }); // unlock audio inside the tap
+            }
+            seal.addEventListener('click', () => {
+                env.classList.add('open'); playFromStart();
+                setTimeout(() => { letter.classList.add('show'); letter.setAttribute('aria-hidden', 'false'); }, reduce ? 50 : 1500);
+            });
+            musicBtn.addEventListener('click', () => {
+                if (song.paused) { song.play().catch(() => { }); musicBtn.textContent = 'Müziği durdur'; }
+                else { song.pause(); musicBtn.textContent = 'Müziği çal'; }
+            });
+            closeBtn.addEventListener('click', () => {
+                letter.classList.remove('show'); letter.setAttribute('aria-hidden', 'true'); song.pause();
+                setTimeout(() => { env.classList.remove('open'); seal.focus(); }, reduce ? 50 : 500);
+            });
+            const c = document.getElementById('snow'), x = c.getContext('2d'); let w, h, f = [];
+            function size() {
+                const d = devicePixelRatio || 1; w = c.width = innerWidth * d; h = c.height = innerHeight * d;
+                f = Array.from({ length: Math.round(innerWidth / 9) }, () => ({ x: Math.random() * w, y: Math.random() * h, r: (Math.random() * 2 + .8) * d, s: (Math.random() * .6 + .3) * d, p: Math.random() * 6.3 }));
+            }
+            function draw() {
+                x.clearRect(0, 0, w, h); x.fillStyle = 'rgba(232,238,248,.8)';
+                for (const k of f) { x.beginPath(); x.arc(k.x, k.y, k.r, 0, 7); x.fill(); if (!reduce) { k.y += k.s; k.p += .01; k.x += Math.sin(k.p) * .3; if (k.y > h) { k.y = -5; k.x = Math.random() * w; } } }
+                if (!reduce) requestAnimationFrame(draw);
+            }
+            addEventListener('resize', size); size(); draw();
+        })();
+    </script>
+</body>
+</html>
